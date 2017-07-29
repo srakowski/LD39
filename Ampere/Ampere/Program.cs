@@ -23,6 +23,23 @@ namespace Ampere
                     case ConsoleKey.DownArrow: board = board.PlayerDown(); break;
                     case ConsoleKey.LeftArrow: board = board.PlayerLeft(); break;
                     case ConsoleKey.RightArrow: board = board.PlayerRight(); break;
+
+                    case ConsoleKey.D0:
+                    case ConsoleKey.D1:
+                    case ConsoleKey.D2:
+                    case ConsoleKey.D3:
+                    case ConsoleKey.D4:
+                    case ConsoleKey.D5:
+                    case ConsoleKey.D6:
+                    case ConsoleKey.D7:
+                    case ConsoleKey.D8:
+                    case ConsoleKey.D9:
+                        board = board.PlayerOption(key.Key - ConsoleKey.D0);
+                        break;
+
+                    case ConsoleKey.Enter:
+                        board = board.PlayerSelect();
+                        break;
                 }
             }
         }
@@ -51,9 +68,8 @@ namespace Ampere
                     Console.WriteLine($"Your hand:");
                     Console.Write(string.Join("\n",
                         battle.Round.Player.Hand.Cards
-                            .Select((c, i) => $"[{(battle.Round.Player.Hand.CardsToToss[i] ? '*' : ' ')}] {i + 1}. {c.RankName} of {c.SuitName}")));
+                            .Select((c, i) => $" {i + 1}. {c.RankName} of {c.SuitName} [{(battle.Round.Player.Hand.CardsToKeep[i] ? "KEEP" : " ")}] ")));
                     Console.WriteLine();
-
                     break;
             }
         }

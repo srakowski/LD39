@@ -64,7 +64,7 @@ namespace Ampere
     struct Hand
     {
         public Card[] Cards { get; }
-        public bool[] CardsToToss { get; }
+        public bool[] CardsToKeep { get; }
 
         public Hand(Card[] cards)
             : this(cards, cards.Select(c => false).ToArray())
@@ -74,7 +74,7 @@ namespace Ampere
         public Hand(Card[] cards, bool[] cardsToToss)
         {
             Cards = cards;
-            CardsToToss = cardsToToss;
+            CardsToKeep = cardsToToss;
         }
 
         public static (Hand Hand, Deck Deck) NewHand(Deck deck)
@@ -83,14 +83,18 @@ namespace Ampere
             return (new Hand(result.Cards), result.Deck);
         }
 
-        public (Hand Hand, Deck Deck) Toss(int[] cardsIndices, Deck deck)
+        public (Hand Hand, Deck Deck) Update(Deck deck)
         {
-            var result = deck.Draw(cardsIndices.Count());
+            if (CardsToKeep.All(keep => keep)) return (this, deck);
+            var result = deck.Draw(CardsToKeep.Count(keep => !keep));
             var cardQueue = new Queue<Card>(result.Cards);
+            var cardsToKeep = CardsToKeep;
             return (new Hand(Cards.Select((card, index) =>
-                cardsIndices.Contains(index)
-                    ? cardQueue.Dequeue()
-                    : card).ToArray()
+                cardsToKeep[index]
+                    ? card
+                    : cardQueue.Dequeue())
+                    .ToArray(), 
+                    cardsToKeep.Select(c => false).ToArray()
                 ), result.Deck);
         }
 
@@ -137,6 +141,10 @@ namespace Ampere
 
         private bool HasOfAKind(int count) => 
             Cards.GroupBy(c => c.Rank).Any(g => g.Count() == count);
+
+        public Hand ToggleKeep(int num) =>
+            new Hand(this.Cards, CardsToKeep.Select((c, i) => i == (num - 1) ? !c : c).ToArray());
+        
     }
 
     struct Battery
@@ -200,6 +208,7 @@ namespace Ampere
         IGameBoard PlayerLeft();
         IGameBoard PlayerRight();
         IGameBoard PlayerSelect();
+        IGameBoard PlayerOption(int num);
     }
 
     struct DungeonBoard : IGameBoard
@@ -240,6 +249,8 @@ namespace Ampere
 
         public IGameBoard PlayerSelect() => this;
 
+        public IGameBoard PlayerOption(int num) => this;
+
         public IGameBoard PlayerActOn(GamePiece target) =>
             target.Type == GamePieceType.Void
                 ? MovePieceTo(Player(), target.Pos)
@@ -274,6 +285,15 @@ namespace Ampere
             this.Hand = hand;
             this.Piece = piece;
         }
+
+        public Battler ToggleKeep(int num) =>
+            new Battler(Hand.ToggleKeep(num), this.Piece);
+
+        public (Battler Battler, Deck Deck) UpdateHand(Deck deck)
+        {
+            var result = Hand.Update(deck);
+            return (new Battler(result.Hand, Piece), result.Deck);
+        }
     }
 
     struct Round
@@ -286,6 +306,28 @@ namespace Ampere
             this.Deck = deck;
             this.Player = player;
             this.Opponent = opponent;
+        }
+
+        public Round TogglePlayerKeep(int num) =>
+            new Round(this.Deck, this.Player.ToggleKeep(num), this.Opponent);
+
+        public Round Step() =>
+            PlayOpponent()
+                .UpdatePlayerHand()
+                .UpdateOpponentHand();
+
+        private Round PlayOpponent() => this;
+
+        private Round UpdatePlayerHand()
+        {
+            var result = Player.UpdateHand(Deck);
+            return new Round(result.Deck, result.Battler, this.Opponent);
+        }
+
+        private Round UpdateOpponentHand()
+        {
+            var result = Opponent.UpdateHand(Deck);
+            return new Round(result.Deck, this.Player, result.Battler);
         }
     }
 
@@ -303,14 +345,26 @@ namespace Ampere
             Round = new Round(deck, pBattler, oBattler);
         }
 
-        public IGameBoard PlayerDown() => null;
+        public BattleBoard(BattleBoard prev, Round round)
+        {
+            this.DungeonBoard = prev.DungeonBoard;
+            this.Round = round;
+        }
 
-        public IGameBoard PlayerLeft() => null;
+        public IGameBoard PlayerDown() => this;
 
-        public IGameBoard PlayerRight() => null;
+        public IGameBoard PlayerLeft() => this;
 
-        public IGameBoard PlayerUp() => null;
+        public IGameBoard PlayerRight() => this;
 
-        public IGameBoard PlayerSelect() => this;
+        public IGameBoard PlayerUp() => this;
+
+        public IGameBoard PlayerOption(int num) =>
+            num > 0 && num <= 5
+                ? new BattleBoard(this, Round.TogglePlayerKeep(num))
+                : this;
+
+        public IGameBoard PlayerSelect() =>
+            new BattleBoard(this, Round.Step());
     }
 }
