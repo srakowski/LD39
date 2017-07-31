@@ -20,5 +20,6 @@ namespace Ampere
     {
         private static Random _rnd { get; } = new Random();
         public static int Next => _rnd.Next();
+        public static int NextRange(int min, int max) => _rnd.Next(min, max);
     }
 }

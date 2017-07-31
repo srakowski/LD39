@@ -5,79 +5,127 @@ namespace Ampere
 {
     class Program
     {
+        public static string PlayerName { get; private set; }
+
+        public static Dungeon Dungeon { get; set; }
+
+        public static Battle Battle { get; set; }
+
         static void Main(string[] args)
         {
-            var board = (IGameBoard)new DungeonBoard()
-                .InitializeBoard()
-                .WithPlayerAt(10, 10)
-                .WithRoomAt(8, 8)
-                .WithRatAt(15, 12);
+            Console.WriteLine("Ampere - A Roguelike Deck Builder With Poker Combat");
+            Console.WriteLine("Create by Shawn Rakowski");
+            Console.WriteLine("For Ludum Dare 39");
+            Console.WriteLine();
+            Console.Write("Name: ");
+            PlayerName = Console.ReadLine();
+            Console.Clear();
+
+            Dungeon = new Dungeon();
+            var player = new HumanGamePlayer(new PlayerState(10, 1))
+            {
+                Pos = new Point(4, 2)
+            };
+            Dungeon.CurrentFloor.AddPlayer(player);
 
             while (true)
             {
-                Draw(board);
-                var key = Console.ReadKey();
+                Console.CursorVisible = false;
+                Draw(Dungeon, player);
+                var key = Console.ReadKey(true);
                 switch (key.Key)
                 {
-                    case ConsoleKey.UpArrow: board = board.PlayerUp(); break;
-                    case ConsoleKey.DownArrow: board = board.PlayerDown(); break;
-                    case ConsoleKey.LeftArrow: board = board.PlayerLeft(); break;
-                    case ConsoleKey.RightArrow: board = board.PlayerRight(); break;
-
-                    case ConsoleKey.D0:
-                    case ConsoleKey.D1:
-                    case ConsoleKey.D2:
-                    case ConsoleKey.D3:
-                    case ConsoleKey.D4:
-                    case ConsoleKey.D5:
-                    case ConsoleKey.D6:
-                    case ConsoleKey.D7:
-                    case ConsoleKey.D8:
-                    case ConsoleKey.D9:
-                        board = board.PlayerOption(key.Key - ConsoleKey.D0);
+                    case ConsoleKey.NumPad7:
+                        Battle = player.ActNorthWest(Dungeon);
                         break;
-
-                    case ConsoleKey.Enter:
-                        board = board.PlayerSelect();
+                    case ConsoleKey.NumPad8:
+                        Battle = player.ActNorth(Dungeon);
+                        break;
+                    case ConsoleKey.NumPad9:
+                        Battle = player.ActNorthEast(Dungeon);
+                        break;
+                    case ConsoleKey.NumPad4:
+                        Battle = player.ActWest(Dungeon);
+                        break;
+                    case ConsoleKey.NumPad6:
+                        Battle = player.ActEast(Dungeon);
+                        break;
+                    case ConsoleKey.NumPad1:
+                        Battle = player.ActSouthWest(Dungeon);
+                        break;
+                    case ConsoleKey.NumPad2:
+                        Battle = player.ActSouth(Dungeon);
+                        break;
+                    case ConsoleKey.NumPad3:
+                        Battle = player.ActSouthEast(Dungeon);
                         break;
                 }
+
+                if (Battle != null) Battle.Execute();
+                Battle = null;
             }
         }
 
-        private static void Draw(IGameBoard gameBoard)
+        public static void DrawBattleBet(GameCard[] availCards)
         {
             Console.Clear();
-            Console.CursorVisible = false;
-            switch (gameBoard)
-            {
-                case DungeonBoard dungeon:
-                    dungeon.Pieces
-                        .Where(ShouldDisplayInConsole)
-                        .ToList()
-                        .ForEach(gp =>
-                        {
-                            Console.SetCursorPosition(gp.Pos.X, gp.Pos.Y);
-                            Console.Write(gp.Character);
-                        });
-                    break;
+            DrawStats(Dungeon, Battle.PlayerBattlePlayer.Player as HumanGamePlayer, (Battle.OpponentBattlePlayer.Player as Monster));
 
-                case BattleBoard battle:
-                    Console.SetCursorPosition(0, 0);
-                    Console.WriteLine("BATTLE!");
-                    Console.WriteLine($"Opponent: {battle.Round.Opponent.Piece.Type.ToString()}");
-                    Console.WriteLine($"Your hand:");
-                    Console.Write(string.Join("\n",
-                        battle.Round.Player.Hand.Cards
-                            .Select((c, i) => $" {i + 1}. {c.RankName} of {c.SuitName} [{(battle.Round.Player.Hand.CardsToKeep[i] ? "KEEP" : " ")}] ")));
-                    Console.WriteLine();
-                    break;
+            Console.WriteLine($"BATTLE POKER");
+            Console.WriteLine();
+            Console.WriteLine("YOUR HAND:");
+            Console.WriteLine("--------------------");
+            Console.WriteLine(String.Join("\n", Battle.PokerRound.PlayerHand.CardSlots.Select((c, j) => $"{j + 1}. {c.Card.RankName} of {c.Card.SuitName}")));
+            //Console.WriteLine(String.Join("\n", Battle.PokerRound.PlayerHand.CardSlots.Select((c, i) => $"{i + 1}. [{(c.Keep ? "KEEP" : "TOSS")}] {c.Card.RankName} of {c.Card.SuitName}")));
+            Console.WriteLine();
+            //foreach (var card in Battle.PokerRound.Pot.Items.Cast<BattleCard>())
+            //    Console.WriteLine(card.Card.Name);
+
+            Console.WriteLine("SELECT A CARD TO ADD TO THE POT:");
+            Console.WriteLine("--------------------");
+            int i = 1;
+            foreach (var card in availCards)
+            {
+                Console.WriteLine($"{i}. {card.Name}");
+                i++;
             }
         }
 
-        private static bool ShouldDisplayInConsole(GamePiece piece) =>
-            PointIsInConsole(piece.Pos);
+        private static void Draw(Dungeon dungeon, HumanGamePlayer player)
+        {
+            dungeon.CurrentFloor.Pieces.ForEach(p =>
+            {
+                Console.SetCursorPosition(p.Pos.X, p.Pos.Y);
+                Console.Write(p.Character);
+            });
 
-        private static bool PointIsInConsole(Point pos) =>
-            pos.X >= 0 && pos.X < Console.BufferWidth && pos.Y >= 0 && pos.Y < Console.BufferHeight;
+            DrawStats(dungeon, player);
+        }
+
+        private static void DrawStats(Dungeon dungeon, HumanGamePlayer player, Monster monster = null)
+        {
+            int i = 0;
+            Console.SetCursorPosition(50, i++);
+            Console.Write("Dungeon Level " + (dungeon.CurrentFloorIdx + 1).ToString());
+            Console.SetCursorPosition(50, i++);
+            Console.Write("--------------------");
+            Console.SetCursorPosition(50, i++);
+            Console.Write($"NAME: {PlayerName}");
+            Console.SetCursorPosition(50, i++);
+            Console.Write($"POWR: {player.PlayerState.PowerLevel.Value}/{player.PlayerState.PowerLevel.MaxValue}");
+
+            if (monster != null)
+            {
+                i++;
+                Console.SetCursorPosition(50, i++);
+                Console.Write("Opponent");
+                Console.SetCursorPosition(50, i++);
+                Console.Write("--------------------");
+                Console.SetCursorPosition(50, i++);
+                Console.Write($"NAME: {monster.Name}");
+                Console.SetCursorPosition(50, i++);
+                Console.Write($"POWR: {monster.PlayerState.PowerLevel.Value}/{player.PlayerState.PowerLevel.MaxValue}");
+            }
+        }
     }
 }

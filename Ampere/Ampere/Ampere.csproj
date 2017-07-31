@@ -44,11 +44,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Either.cs" />
+    <Compile Include="Battle.cs" />
+    <Compile Include="Dungeon.cs" />
+    <Compile Include="GameCards.cs" />
+    <Compile Include="GamePlayers.cs" />
+    <Compile Include="PlayerState.cs" />
+    <Compile Include="Poker.cs" />
     <Compile Include="Point.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Simulation.cs" />
     <Compile Include="Util.cs" />
   </ItemGroup>
   <ItemGroup>
